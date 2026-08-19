@@ -22,8 +22,8 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "van-ban-db",
-      "database_id": "PLACEHOLDER_DATABASE_ID",
+      "database_name": "quanly-vanban",
+      "database_id": "ef592ca0-a186-4675-8240-35809ff37412",
       "migrations_dir": "drizzle"
     }
   ],
