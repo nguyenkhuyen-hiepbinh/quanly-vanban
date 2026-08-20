@@ -31,6 +31,16 @@ export type DoMat = (typeof DO_MAT)[number];
 
 // ---------- TABLES ----------
 
+// Danh mục năm học (VD: "2026-2027") - do Admin tự thêm/quản lý, dùng để gắn vào từng văn
+// bản phục vụ lưu trữ/tra cứu theo năm học (khác năm dương lịch dùng để đánh Số đến/Số đi).
+export const academicYears = sqliteTable("academic_years", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  name: text("name").notNull().unique(), // VD: "2026-2027"
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const departments = sqliteTable("departments", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   code: text("code").notNull().unique(),
@@ -86,7 +96,8 @@ export const documents = sqliteTable("documents", {
   // Số hiệu
   soThuTu: integer("so_thu_tu"), // số đến / số đi (số nguyên tuần tự trong năm)
   soKyHieu: text("so_ky_hieu"), // số/ký hiệu văn bản gốc (VD: 15/QĐ-THPT)
-  namSo: integer("nam_so"), // năm áp dụng số thứ tự
+  namSo: integer("nam_so"), // năm dương lịch áp dụng số thứ tự (Số đến/Số đi reset theo năm này)
+  academicYearId: integer("academic_year_id").references(() => academicYears.id), // năm học lưu trữ (VD: 2026-2027) - độc lập với năm đánh số ở trên
 
   trichYeu: text("trich_yeu").notNull(), // trích yếu nội dung
   loaiVanBan: text("loai_van_ban").notNull().default("Công văn"), // Công văn/Quyết định/Thông báo/Kế hoạch...
