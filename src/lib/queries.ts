@@ -1,6 +1,14 @@
 import { eq, desc, asc } from "drizzle-orm";
 import { getDb } from "@/db";
-import { documents, departments, documentFiles, processingHistory, users } from "@/db/schema";
+import { todayVN } from "@/lib/date";
+import {
+  documents,
+  departments,
+  academicYears,
+  documentFiles,
+  processingHistory,
+  users,
+} from "@/db/schema";
 import type { SessionPayload } from "@/lib/auth";
 import { canAccessDepartment } from "@/lib/rbac";
 
@@ -12,6 +20,9 @@ export async function getDocumentDetail(id: number, session: SessionPayload) {
 
   const department = doc.departmentId
     ? await db.select().from(departments).where(eq(departments.id, doc.departmentId)).get()
+    : null;
+  const academicYear = doc.academicYearId
+    ? await db.select().from(academicYears).where(eq(academicYears.id, doc.academicYearId)).get()
     : null;
   const creator = await db.select().from(users).where(eq(users.id, doc.createdById)).get();
   const assignee = doc.assignedToId
@@ -40,6 +51,7 @@ export async function getDocumentDetail(id: number, session: SessionPayload) {
   return {
     document: doc,
     department,
+    academicYear,
     creator: creator ? { id: creator.id, fullName: creator.fullName } : null,
     assignee: assignee ? { id: assignee.id, fullName: assignee.fullName } : null,
     files,
@@ -56,7 +68,7 @@ export async function getDashboardStats(session: SessionPayload) {
       : [];
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayVN();
   const isOverdue = (d: (typeof all)[number]) =>
     !!d.hanXuLy &&
     d.hanXuLy < today &&
