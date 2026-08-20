@@ -11,6 +11,13 @@ export const departmentUpdateSchema = departmentCreateSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+export const academicYearCreateSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{4}$/, "Định dạng năm học phải là YYYY-YYYY, VD: 2026-2027"),
+});
+
 export const userCreateSchema = z.object({
   username: z
     .string()
@@ -45,6 +52,7 @@ export const documentCreateSchema = z.object({
   doKhan: z.enum(DO_KHAN).optional(),
   doMat: z.enum(DO_MAT).optional(),
   departmentId: z.coerce.number().int().positive().optional().nullable(),
+  academicYearId: z.coerce.number().int().positive().optional().nullable(),
   soLuuHoSo: z.string().optional().nullable(),
   ghiChu: z.string().optional().nullable(),
   applyStamp: z.coerce.boolean().optional(),
@@ -61,6 +69,7 @@ export const documentUpdateSchema = z.object({
   doKhan: z.enum(DO_KHAN).optional(),
   doMat: z.enum(DO_MAT).optional(),
   departmentId: z.number().int().positive().optional().nullable(),
+  academicYearId: z.number().int().positive().optional().nullable(),
   assignedToId: z.number().int().positive().optional().nullable(),
   status: z.enum(DOC_STATUS).optional(),
   ghiChu: z.string().optional().nullable(),
