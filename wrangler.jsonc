@@ -3,7 +3,7 @@
   "main": ".open-next/worker.js",
   // Đặt tên Worker theo tên miền phụ mong muốn, VD: "vanban-truongthpt" ->
   // https://vanban-truongthpt.<subdomain>.workers.dev (có thể gắn domain riêng sau).
-  "name": "van-ban-app",
+  "name": "quanly-vanban",
   // Ngày tương thích runtime - nên cập nhật theo ngày build thực tế khi triển khai chính thức.
   "compatibility_date": "2026-08-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
@@ -23,7 +23,7 @@
     {
       "binding": "DB",
       "database_name": "van-ban-db",
-      "database_id": "PLACEHOLDER_DATABASE_ID",
+      "database_id": "ef592ca0-a186-4675-8240-35809ff37412",
       "migrations_dir": "drizzle"
     }
   ],
