@@ -73,11 +73,14 @@ export async function stampPdf(
   const { width, height } = page.getSize();
 
   // Kích thước khung dấu (điểm PDF, 72pt = 1 inch ≈ 25.4mm)
-  const boxW = 200;
-  const boxH = 108;
+  const boxW = 190;
+  const boxH = 100;
   const margin = 24;
-  const x = width - boxW - margin;
-  const y = height - boxH - margin;
+  // Góc trái (không phải góc phải) - đóng vào khoảng giấy trắng dưới số/ký hiệu văn bản, phía
+  // trên trích yếu nội dung (đúng Nghị định 30/2020/NĐ-CP), tránh đè lên khối tiêu đề cơ quan
+  // ban hành thường nằm ở góc trái trên cùng.
+  const x = margin;
+  const y = height - boxH - margin - 70;
 
   const red = rgb(0.75, 0.05, 0.05);
   const white = rgb(1, 1, 1);
@@ -109,19 +112,25 @@ export async function stampPdf(
   });
   cursorY -= 12;
 
-  page.drawText("CÔNG VĂN ĐẾN", {
-    x: padX,
+  // "CÔNG VĂN ĐẾN" canh giữa trong khung dấu (bản cũ canh trái).
+  const congVanDenText = "CÔNG VĂN ĐẾN";
+  const congVanDenSize = 11;
+  const congVanDenWidth = fontBold.widthOfTextAtSize(congVanDenText, congVanDenSize);
+  page.drawText(congVanDenText, {
+    x: x + (boxW - congVanDenWidth) / 2,
     y: cursorY,
-    size: 11,
+    size: congVanDenSize,
     font: fontBold,
     color: red,
   });
   cursorY -= lineGap + 2;
 
+  // "Chuyển" không bắt buộc phải ghi - để trống thay vì in chấm chấm (chấm chấm ngụ ý bắt buộc
+  // điền tay). "Lưu hồ sơ số" vẫn giữ chấm chấm vì đó là ô điền tay theo quy định lưu trữ.
   const rows: [string, string][] = [
     ["Số đến:", data.soDen],
     ["Ngày đến:", data.ngayDen],
-    ["Chuyển:", data.chuyen || "................................"],
+    ["Chuyển:", data.chuyen || ""],
     ["Lưu hồ sơ số:", data.soLuuHoSo || "........................"],
   ];
 
