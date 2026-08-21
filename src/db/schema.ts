@@ -89,6 +89,27 @@ export const counters = sqliteTable(
   })
 );
 
+// Bộ đếm "Lưu hồ sơ số" theo từng phòng ban + năm để tự sinh mã dạng "{Mã phòng ban}-{năm}-
+// {số thứ tự 3 chữ số}" (VD: VP-2026-001). Cùng cơ chế upsert nguyên tử như bảng `counters`
+// ở trên - xem src/lib/numbering.ts.
+export const hoSoCounters = sqliteTable(
+  "ho_so_counters",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    departmentId: integer("department_id")
+      .notNull()
+      .references(() => departments.id),
+    year: integer("year").notNull(),
+    lastNumber: integer("last_number").notNull().default(0),
+  },
+  (table) => ({
+    deptYearUnique: uniqueIndex("ho_so_counters_dept_year_unique").on(
+      table.departmentId,
+      table.year
+    ),
+  })
+);
+
 export const documents = sqliteTable("documents", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   type: text("type", { enum: DOC_TYPES }).notNull(),
