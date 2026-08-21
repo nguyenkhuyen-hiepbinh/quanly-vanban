@@ -15,6 +15,9 @@ declare global {
     ASSETS: Fetcher;
     // Biến môi trường / secret
     AUTH_SECRET: string;
+    // Cloudflare Workers AI - dùng cho tính năng "Tự động điền từ ảnh" (xem src/lib/extract.ts).
+    // Không phải secret, không cần cấu hình gì thêm ngoài khai báo "ai" trong wrangler.jsonc.
+    AI: Ai;
   }
 }
 

@@ -37,6 +37,13 @@
     }
   ],
 
+  // Cloudflare Workers AI - dùng cho tính năng "Tự động điền từ ảnh" (đọc ảnh văn bản bằng AI).
+  // Không cần tạo tài khoản/API key riêng - dùng luôn tài khoản Cloudflare hiện có, tính phí
+  // gộp chung vào hoá đơn Cloudflare (có mức miễn phí hàng ngày trước khi tính phí).
+  "ai": {
+    "binding": "AI"
+  },
+
   // Biến môi trường không bí mật có thể khai báo trực tiếp ở đây.
   // AUTH_SECRET là bí mật (dùng ký JWT phiên đăng nhập) - KHÔNG khai báo giá trị thật trong
   // file này (file này commit lên Git). Đặt qua lệnh:

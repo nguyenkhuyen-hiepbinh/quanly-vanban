@@ -28,6 +28,9 @@ export default function DocumentFormClient({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [extracting, setExtracting] = useState(false);
+  const [extractMsg, setExtractMsg] = useState<string | null>(null);
+  const [extractError, setExtractError] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     trichYeu: "",
@@ -68,6 +71,61 @@ export default function DocumentFormClient({
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
+  }
+
+  // Cloudflare Workers AI (model đang dùng) chỉ đọc được ảnh, chưa hỗ trợ PDF trực tiếp.
+  const EXTRACTABLE_TYPES = ["image/jpeg", "image/png"];
+
+  function handleFileChange(f: File | null) {
+    setFile(f);
+    setExtractMsg(null);
+    setExtractError(null);
+  }
+
+  // Đọc ảnh/PDF bằng Claude API (vision) và tự động điền các trường còn trống trong form -
+  // chỉ là tính năng hỗ trợ, KHÔNG ghi đè lên trường người dùng đã tự nhập, và luôn cần người
+  // dùng tự kiểm tra lại trước khi lưu (AI có thể đọc sai/thiếu, nhất là ảnh mờ/nghiêng).
+  async function handleAutoFill() {
+    if (!file) return;
+    setExtracting(true);
+    setExtractError(null);
+    setExtractMsg(null);
+    try {
+      const fd = new FormData();
+      fd.set("file", file);
+      const res = await fetch("/api/documents/extract-info", { method: "POST", body: fd });
+      const data = (await res.json()) as {
+        error?: string;
+        fields?: {
+          trichYeu?: string;
+          loaiVanBan?: string;
+          soKyHieu?: string;
+          noiGui?: string;
+          ngayVanBan?: string;
+        };
+      };
+      if (!res.ok || !data.fields) {
+        setExtractError(data.error || "Không đọc được nội dung tệp.");
+        return;
+      }
+      const f = data.fields;
+      setForm((prev) => ({
+        ...prev,
+        trichYeu: prev.trichYeu || f.trichYeu || prev.trichYeu,
+        loaiVanBan:
+          f.loaiVanBan && (LOAI_VAN_BAN_OPTIONS as readonly string[]).includes(f.loaiVanBan)
+            ? f.loaiVanBan
+            : prev.loaiVanBan,
+        soKyHieu: prev.soKyHieu || f.soKyHieu || prev.soKyHieu,
+        noiGui: type === "DEN" ? prev.noiGui || f.noiGui || prev.noiGui : prev.noiGui,
+        ngayVanBan: prev.ngayVanBan || f.ngayVanBan || prev.ngayVanBan,
+      }));
+      setExtractMsg("Đã tự động điền từ tệp - vui lòng kiểm tra lại các trường trước khi lưu.");
+    } catch {
+      setExtractError("Không thể kết nối tới máy chủ.");
+    } finally {
+      setExtracting(false);
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -361,9 +419,28 @@ export default function DocumentFormClient({
           type="file"
           accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
           className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-50 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-100"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
         />
         <p className="mt-1 text-xs text-slate-400">Kích thước tối đa 30MB.</p>
+
+        {file && EXTRACTABLE_TYPES.includes(file.type) && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              disabled={extracting}
+              className="btn-secondary text-sm"
+            >
+              {extracting ? "Đang đọc tệp bằng AI..." : "🔍 Tự động điền thông tin từ tệp này"}
+            </button>
+            <p className="mt-1 text-xs text-slate-400">
+              Dùng AI đọc nội dung ảnh để gợi ý điền các trường phía trên (không ghi đè trường
+              đã có nội dung). Luôn kiểm tra lại trước khi lưu.
+            </p>
+            {extractError && <p className="mt-1 text-xs text-red-600">{extractError}</p>}
+            {extractMsg && <p className="mt-1 text-xs text-emerald-600">{extractMsg}</p>}
+          </div>
+        )}
       </div>
 
       {type === "DEN" && (
