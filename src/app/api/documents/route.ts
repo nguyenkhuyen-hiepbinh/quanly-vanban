@@ -13,7 +13,7 @@ import {
 } from "@/db/schema";
 import { requireSession } from "@/lib/rbac";
 import { documentCreateSchema } from "@/lib/validators";
-import { getNextSequenceNumber } from "@/lib/numbering";
+import { getNextSequenceNumber, getNextHoSoNumber } from "@/lib/numbering";
 import { saveUploadedFile } from "@/lib/storage";
 import { stampPdf, isPdf } from "@/lib/stamp";
 import { getOrgName } from "@/lib/settings";
@@ -211,6 +211,19 @@ export async function POST(req: NextRequest) {
 
   const todayStr = todayVN();
 
+  const deptRow = departmentId
+    ? await db.select().from(departments).where(eq(departments.id, departmentId)).get()
+    : null;
+
+  // Lưu hồ sơ số: với văn bản đến, tự sinh theo mã phòng ban xử lý + năm, dạng
+  // "{Mã phòng ban}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), số thứ tự tự tăng liên tiếp
+  // theo từng mã và reset về 001 mỗi năm mới - không cho nhập tay để tránh trùng/sai định dạng.
+  let soLuuHoSo: string | null = data.soLuuHoSo || null;
+  if (data.type === "DEN" && deptRow?.code) {
+    const hoSoSeq = await getNextHoSoNumber(deptRow.id, year);
+    soLuuHoSo = `${deptRow.code}-${year}-${String(hoSoSeq).padStart(3, "0")}`;
+  }
+
   // 1. Lưu file gốc lên R2
   const savedOriginal = await saveUploadedFile(originalBuffer, file.name, file.type);
 
@@ -221,15 +234,12 @@ export async function POST(req: NextRequest) {
 
   if (applyStamp) {
     try {
-      const deptRow = departmentId
-        ? await db.select().from(departments).where(eq(departments.id, departmentId)).get()
-        : null;
       const stampData = {
         tenCoQuan: await getOrgName(),
         soDen: String(soThuTu),
         ngayDen: formatDateVi(todayStr),
         chuyen: deptRow?.name ?? "",
-        soLuuHoSo: data.soLuuHoSo ?? "",
+        soLuuHoSo: soLuuHoSo ?? "",
       };
       const stampedBuffer = await stampPdf(originalBuffer, stampData);
       const savedStamped = await saveUploadedFile(
@@ -264,7 +274,7 @@ export async function POST(req: NextRequest) {
       hanXuLy: data.hanXuLy || null,
       doKhan: data.doKhan ?? "THUONG",
       doMat: data.doMat ?? "THUONG",
-      soLuuHoSo: data.soLuuHoSo || null,
+      soLuuHoSo,
       status: data.type === "DEN" ? "DA_CHUYEN" : "MOI",
       departmentId,
       createdById: session.userId,
@@ -332,3 +342,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ document: created }, { status: 201 });
 }
+
