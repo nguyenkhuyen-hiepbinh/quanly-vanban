@@ -8,7 +8,13 @@ export type ExtractedFields = {
   ngayVanBan: string; // YYYY-MM-DD (theo ngày ghi trong chính văn bản, không phải hôm nay)
 };
 
-const VISION_MODEL = "@cf/meta/llama-3.2-11b-vision-instruct";
+// Đổi từ @cf/meta/llama-3.2-11b-vision-instruct sang model này vì Llama 3.2 Vision là model
+// "gated" của Meta - lần gọi đầu tiên báo lỗi 5016 yêu cầu phải gửi 1 lần prompt "agree" để
+// chấp nhận giấy phép (Meta Llama Community License), việc này cần gọi thẳng Cloudflare API
+// bằng API token/curl - không làm được qua giao diện web thông thường. Moondream không phải
+// model gated nên dùng được ngay, và được quảng cáo mạnh về khả năng OCR/structured output -
+// phù hợp với việc đọc văn bản hành chính hơn.
+const VISION_MODEL = "@cf/moondream/moondream3.1-9B-A2B";
 
 const EXTRACT_PROMPT = `Đây là ảnh chụp một văn bản hành chính tiếng Việt (công văn, quyết định, thông báo...). Hãy đọc kỹ và trả lời DUY NHẤT một đối tượng JSON hợp lệ (không kèm giải thích, không bọc trong dấu \`\`\`), đúng theo cấu trúc sau:
 {
@@ -20,7 +26,7 @@ const EXTRACT_PROMPT = `Đây là ảnh chụp một văn bản hành chính ti�
 }
 Chỉ điền trường nào đọc RÕ RÀNG được trong ảnh. Nếu không chắc chắn hoặc không đọc được, để chuỗi rỗng "" cho trường đó - tuyệt đối không suy đoán hay bịa thông tin.`;
 
-// Mô hình có thể trả lời kèm câu chữ thừa hoặc bọc trong ```json ... ``` dù đã dặn - lấy khối
+// Model có thể trả lời kèm câu chữ thừa hoặc bọc trong ```json ... ``` dù đã dặn - lấy khối
 // {...} đầu tiên tìm được rồi mới parse, thay vì parse thẳng toàn bộ chuỗi trả lời.
 function extractJsonObject(text: string): Record<string, unknown> | null {
   const match = text.match(/\{[\s\S]*\}/);
@@ -35,8 +41,7 @@ function extractJsonObject(text: string): Record<string, unknown> | null {
 /**
  * Dùng Cloudflare Workers AI (model có khả năng đọc ảnh) để đọc và trích xuất thông tin từ
  * ảnh (JPEG/PNG) của một văn bản hành chính. CHỈ hỗ trợ ảnh - model này không nhận trực tiếp
- * file PDF (khác với API có vision của các nhà cung cấp khác), nên với PDF cần chụp/scan lại
- * thành ảnh nếu muốn dùng tính năng tự động điền.
+ * file PDF, nên với PDF cần chụp/scan lại thành ảnh nếu muốn dùng tính năng tự động điền.
  *
  * Ném lỗi (Error) với thông điệp tiếng Việt dễ hiểu nếu thất bại - nơi gọi hàm này cần
  * try/catch và không để lỗi này chặn luồng chính (đây chỉ là tính năng hỗ trợ điền nhanh,
@@ -59,14 +64,22 @@ export async function extractDocumentFields(
     );
   }
 
-  // Workers AI nhận ảnh dưới dạng mảng số (byte array) từ ArrayBuffer, không phải chuỗi base64.
-  const imageBytes = [...new Uint8Array(fileBuffer)];
+  // Model này nhận ảnh dạng base64 data URI (khác với @cf/meta/llama-3.2-11b-vision-instruct
+  // trước đây nhận mảng byte thô).
+  // Lưu ý: kiểu `Buffer` bị xung đột giữa @types/node và @cloudflare/workers-types trong dự án
+  // này khiến TypeScript không thấy overload `toString(encoding)` (dù lúc chạy thực tế vẫn hoạt
+  // động bình thường) - ép kiểu để gọi đúng API.
+  const base64 = (fileBuffer as unknown as { toString(encoding: string): string }).toString(
+    "base64"
+  );
+  const dataUri = `data:${mimeType};base64,${base64}`;
 
   let result: unknown;
   try {
     result = await env.AI.run(VISION_MODEL, {
-      image: imageBytes,
-      prompt: EXTRACT_PROMPT,
+      task: "query",
+      image: dataUri,
+      question: EXTRACT_PROMPT,
       max_tokens: 1024,
     });
   } catch (err) {
@@ -75,10 +88,20 @@ export async function extractDocumentFields(
     );
   }
 
-  const responseText =
-    typeof result === "object" && result !== null && "response" in result
-      ? String((result as { response?: unknown }).response ?? "")
-      : String(result ?? "");
+  // Phòng trường hợp tài liệu chính thức của Cloudflare mô tả sai/thiếu tên trường (đã từng
+  // gặp) - thử lần lượt vài tên trường phổ biến trước khi coi cả kết quả trả về là văn bản.
+  function pickText(r: unknown): string {
+    if (typeof r === "string") return r;
+    if (r && typeof r === "object") {
+      const obj = r as Record<string, unknown>;
+      for (const key of ["answer", "response", "result", "text"]) {
+        if (typeof obj[key] === "string") return obj[key] as string;
+      }
+    }
+    return JSON.stringify(r);
+  }
+
+  const responseText = pickText(result);
 
   const parsed = extractJsonObject(responseText);
   if (!parsed) {
