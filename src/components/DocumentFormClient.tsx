@@ -39,7 +39,6 @@ export default function DocumentFormClient({
     doMat: "THUONG",
     departmentId: sessionDepartmentId ? String(sessionDepartmentId) : "",
     academicYearId: "",
-    soLuuHoSo: "",
     ghiChu: "",
     applyStamp: true,
   });
@@ -93,7 +92,6 @@ export default function DocumentFormClient({
       fd.set("doMat", form.doMat);
       if (form.departmentId) fd.set("departmentId", form.departmentId);
       if (form.academicYearId) fd.set("academicYearId", form.academicYearId);
-      if (form.soLuuHoSo) fd.set("soLuuHoSo", form.soLuuHoSo);
       if (form.ghiChu) fd.set("ghiChu", form.ghiChu);
       if (type === "DEN") fd.set("applyStamp", String(form.applyStamp));
       fd.set("file", file);
@@ -267,12 +265,11 @@ export default function DocumentFormClient({
         </div>
         {type === "DEN" && (
           <div>
-            <label className="field-label">Lưu hồ sơ số (nếu có)</label>
+            <label className="field-label">Lưu hồ sơ số</label>
             <input
-              className="field-input"
-              value={form.soLuuHoSo}
-              onChange={(e) => update("soLuuHoSo", e.target.value)}
-              placeholder="VD: HS-01/2026"
+              className="field-input bg-slate-50 text-slate-500"
+              disabled
+              value="Tự động sinh theo mã phòng ban đã chọn (VD: VP-2026-001)"
             />
           </div>
         )}
