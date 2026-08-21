@@ -28,3 +28,26 @@ export async function getNextSequenceNumber(
   }
   return row.last_number;
 }
+
+/**
+ * Sinh số thứ tự tiếp theo cho "Lưu hồ sơ số" của một phòng ban trong 1 năm - dùng để ghép
+ * thành mã dạng "{Mã phòng ban}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), reset về 1 mỗi
+ * năm mới. Cùng cơ chế upsert nguyên tử như getNextSequenceNumber ở trên.
+ */
+export async function getNextHoSoNumber(
+  departmentId: number,
+  year: number
+): Promise<number> {
+  const db = getDb();
+  const row = await db.get<{ last_number: number }>(sql`
+    INSERT INTO ho_so_counters (department_id, year, last_number)
+    VALUES (${departmentId}, ${year}, 1)
+    ON CONFLICT(department_id, year)
+    DO UPDATE SET last_number = last_number + 1
+    RETURNING last_number
+  `);
+  if (!row) {
+    throw new Error("Không sinh được số thứ tự lưu hồ sơ (ho_so_counters).");
+  }
+  return row.last_number;
+}
