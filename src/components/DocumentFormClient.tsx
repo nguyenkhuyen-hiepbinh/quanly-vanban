@@ -7,6 +7,7 @@ import { LOAI_VAN_BAN_OPTIONS, DO_KHAN_LABELS, DO_MAT_LABELS } from "@/lib/label
 import { todayVN } from "@/lib/date";
 
 type Department = { id: number; name: string };
+type SoDepartment = { id: number; code: string; name: string };
 type AcademicYear = { id: number; name: string };
 
 export default function DocumentFormClient({
@@ -22,6 +23,7 @@ export default function DocumentFormClient({
 }) {
   const router = useRouter();
   const [departments, setDepartments] = useState<Department[]>([]);
+  const [soDepartments, setSoDepartments] = useState<SoDepartment[]>([]);
   const [academicYears, setAcademicYears] = useState<AcademicYear[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -38,6 +40,7 @@ export default function DocumentFormClient({
     doKhan: "THUONG",
     doMat: "THUONG",
     departmentId: sessionDepartmentId ? String(sessionDepartmentId) : "",
+    soDepartmentId: "",
     academicYearId: "",
     ghiChu: "",
     applyStamp: true,
@@ -47,6 +50,9 @@ export default function DocumentFormClient({
     fetch("/api/departments")
       .then((r) => r.json() as Promise<{ departments?: Department[] }>)
       .then((d) => setDepartments(d.departments ?? []));
+    fetch("/api/so-departments")
+      .then((r) => r.json() as Promise<{ soDepartments?: SoDepartment[] }>)
+      .then((d) => setSoDepartments(d.soDepartments ?? []));
     fetch("/api/academic-years")
       .then((r) => r.json() as Promise<{ academicYears?: AcademicYear[] }>)
       .then((d) => {
@@ -76,6 +82,10 @@ export default function DocumentFormClient({
       setError("Vui lòng chọn phòng ban tiếp nhận xử lý.");
       return;
     }
+    if (type === "DEN" && !form.soDepartmentId) {
+      setError("Vui lòng chọn văn bản này thuộc Phòng ban nào của Sở.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -91,6 +101,7 @@ export default function DocumentFormClient({
       fd.set("doKhan", form.doKhan);
       fd.set("doMat", form.doMat);
       if (form.departmentId) fd.set("departmentId", form.departmentId);
+      if (type === "DEN" && form.soDepartmentId) fd.set("soDepartmentId", form.soDepartmentId);
       if (form.academicYearId) fd.set("academicYearId", form.academicYearId);
       if (form.ghiChu) fd.set("ghiChu", form.ghiChu);
       if (type === "DEN") fd.set("applyStamp", String(form.applyStamp));
@@ -262,18 +273,53 @@ export default function DocumentFormClient({
               value={departments.find((d) => d.id === sessionDepartmentId)?.name ?? "Phòng ban của bạn"}
             />
           )}
+          <p className="mt-1 text-xs text-slate-400">
+            Phòng ban NỘI BỘ trường sẽ tiếp nhận, xử lý văn bản này.
+          </p>
         </div>
         {type === "DEN" && (
+          <div>
+            <label className="field-label">Văn bản này thuộc Phòng ban nào của Sở *</label>
+            <select
+              className="field-input"
+              value={form.soDepartmentId}
+              onChange={(e) => update("soDepartmentId", e.target.value)}
+              required
+            >
+              <option value="">-- Chọn phòng ban của Sở --</option>
+              {soDepartments.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.code} - {d.name}
+                </option>
+              ))}
+            </select>
+            {soDepartments.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">
+                Chưa có phòng ban nào của Sở - vào Quản trị hệ thống → Phòng ban của Sở để thêm.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
+      {type === "DEN" && (
+        <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="field-label">Lưu hồ sơ số</label>
             <input
               className="field-input bg-slate-50 text-slate-500"
               disabled
-              value="Tự động sinh theo mã phòng ban đã chọn (VD: VP-2026-001)"
+              value={
+                form.soDepartmentId
+                  ? `Tự động sinh khi lưu (VD: ${
+                      soDepartments.find((d) => String(d.id) === form.soDepartmentId)?.code ?? "VP"
+                    }-${new Date(form.ngayVanBan || todayVN()).getFullYear()}-001)`
+                  : "Tự động sinh theo Phòng ban của Sở đã chọn ở trên (VD: VP-2026-001)"
+              }
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-2 gap-4">
         <div>

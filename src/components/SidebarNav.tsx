@@ -15,6 +15,7 @@ const BASE_NAV: NavItem[] = [
 
 const ADMIN_NAV: NavItem[] = [
   { href: "/admin/departments", label: "Phòng ban", icon: "🏢" },
+  { href: "/admin/so-departments", label: "Phòng ban của Sở", icon: "🏛️" },
   { href: "/admin/academic-years", label: "Năm học", icon: "🗓️" },
   { href: "/admin/users", label: "Người dùng", icon: "👤" },
   { href: "/admin/settings", label: "Cấu hình hệ thống", icon: "⚙️" },

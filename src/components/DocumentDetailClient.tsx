@@ -29,7 +29,7 @@ const STATUS_OPTIONS = Object.entries(DOC_STATUS_LABELS);
 
 export default function DocumentDetailClient({ basePath, role, detail }: Props) {
   const router = useRouter();
-  const { document: doc, department, academicYear, creator, assignee, files, history } = detail;
+  const { document: doc, department, soDepartment, academicYear, creator, assignee, files, history } = detail;
 
   const [status, setStatus] = useState(doc.status);
   const [ghiChu, setGhiChu] = useState(doc.ghiChu ?? "");
@@ -158,6 +158,12 @@ export default function DocumentDetailClient({ basePath, role, detail }: Props) 
             <Info label="Số/ký hiệu văn bản gốc" value={doc.soKyHieu || "—"} />
             <Info label={doc.type === "DEN" ? "Nơi gửi" : "Nơi nhận"} value={(doc.type === "DEN" ? doc.noiGui : doc.noiNhan) || "—"} />
             <Info label="Phòng ban" value={department?.name || "—"} />
+            {doc.type === "DEN" && (
+              <Info
+                label="Phòng ban của Sở"
+                value={soDepartment ? `${soDepartment.code} - ${soDepartment.name}` : "—"}
+              />
+            )}
             <Info label="Năm học" value={academicYear?.name || "—"} />
             <Info
               label="Ngày văn bản"

@@ -83,16 +83,14 @@ export async function stampPdf(
   const y = height - boxH - margin - 70;
 
   const red = rgb(0.75, 0.05, 0.05);
-  const white = rgb(1, 1, 1);
 
-  // Nền trắng mờ phía sau để chữ dễ đọc dù đè lên nội dung văn bản
+  // Không tô nền (bỏ hẳn màu nền) - chỉ vẽ khung viền đỏ, để chữ của văn bản gốc phía dưới
+  // vẫn nhìn thấy được xuyên qua con dấu, đúng yêu cầu "đóng dấu không che chữ phía dưới".
   page.drawRectangle({
     x,
     y,
     width: boxW,
     height: boxH,
-    color: white,
-    opacity: 0.85,
     borderColor: red,
     borderWidth: 1.5,
   });

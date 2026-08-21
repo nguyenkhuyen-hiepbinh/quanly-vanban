@@ -5,6 +5,7 @@ import {
   documents,
   documentFiles,
   departments,
+  soDepartments,
   academicYears,
   users,
   processingHistory,
@@ -148,6 +149,7 @@ export async function POST(req: NextRequest) {
     "doKhan",
     "doMat",
     "departmentId",
+    "soDepartmentId",
     "academicYearId",
     "soLuuHoSo",
     "ghiChu",
@@ -174,6 +176,12 @@ export async function POST(req: NextRequest) {
   if (data.type === "DEN" && !departmentId) {
     return NextResponse.json(
       { error: "Vui lòng chọn phòng ban tiếp nhận xử lý văn bản đến." },
+      { status: 400 }
+    );
+  }
+  if (data.type === "DEN" && !data.soDepartmentId) {
+    return NextResponse.json(
+      { error: "Vui lòng chọn văn bản này thuộc Phòng ban nào của Sở." },
       { status: 400 }
     );
   }
@@ -211,17 +219,25 @@ export async function POST(req: NextRequest) {
 
   const todayStr = todayVN();
 
+  // deptRow: phòng ban NỘI BỘ TRƯỜNG được chuyển xử lý (hiển thị ở mục "Chuyển" trên dấu đến).
   const deptRow = departmentId
     ? await db.select().from(departments).where(eq(departments.id, departmentId)).get()
     : null;
 
-  // Lưu hồ sơ số: với văn bản đến, tự sinh theo mã phòng ban xử lý + năm, dạng
-  // "{Mã phòng ban}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), số thứ tự tự tăng liên tiếp
-  // theo từng mã và reset về 001 mỗi năm mới - không cho nhập tay để tránh trùng/sai định dạng.
+  // soDeptRow: phòng ban CỦA SỞ mà văn bản đến này thuộc về - độc lập với deptRow ở trên, dùng
+  // làm căn cứ tự sinh "Lưu hồ sơ số".
+  const soDeptRow = data.soDepartmentId
+    ? await db.select().from(soDepartments).where(eq(soDepartments.id, data.soDepartmentId)).get()
+    : null;
+
+  // Lưu hồ sơ số: với văn bản đến, tự sinh theo mã Phòng ban CỦA SỞ đã chọn + năm, dạng
+  // "{Mã phòng ban của Sở}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), số thứ tự tự tăng
+  // liên tiếp theo từng mã và reset về 001 mỗi năm mới - không cho nhập tay để tránh trùng/sai
+  // định dạng.
   let soLuuHoSo: string | null = data.soLuuHoSo || null;
-  if (data.type === "DEN" && deptRow?.code) {
-    const hoSoSeq = await getNextHoSoNumber(deptRow.id, year);
-    soLuuHoSo = `${deptRow.code}-${year}-${String(hoSoSeq).padStart(3, "0")}`;
+  if (data.type === "DEN" && soDeptRow?.code) {
+    const hoSoSeq = await getNextHoSoNumber(soDeptRow.id, year);
+    soLuuHoSo = `${soDeptRow.code}-${year}-${String(hoSoSeq).padStart(3, "0")}`;
   }
 
   // 1. Lưu file gốc lên R2
@@ -277,6 +293,7 @@ export async function POST(req: NextRequest) {
       soLuuHoSo,
       status: data.type === "DEN" ? "DA_CHUYEN" : "MOI",
       departmentId,
+      soDepartmentId: data.type === "DEN" ? data.soDepartmentId ?? null : null,
       createdById: session.userId,
       ghiChu: data.ghiChu || null,
       isStamped,
@@ -342,4 +359,3 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ document: created }, { status: 201 });
 }
-

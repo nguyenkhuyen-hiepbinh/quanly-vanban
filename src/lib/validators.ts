@@ -11,6 +11,11 @@ export const departmentUpdateSchema = departmentCreateSchema.partial().extend({
   isActive: z.boolean().optional(),
 });
 
+export const soDepartmentCreateSchema = z.object({
+  code: z.string().min(1, "Vui lòng nhập mã phòng ban").max(20),
+  name: z.string().min(1, "Vui lòng nhập tên phòng ban").max(200),
+});
+
 export const academicYearCreateSchema = z.object({
   name: z
     .string()
@@ -52,6 +57,7 @@ export const documentCreateSchema = z.object({
   doKhan: z.enum(DO_KHAN).optional(),
   doMat: z.enum(DO_MAT).optional(),
   departmentId: z.coerce.number().int().positive().optional().nullable(),
+  soDepartmentId: z.coerce.number().int().positive().optional().nullable(),
   academicYearId: z.coerce.number().int().positive().optional().nullable(),
   soLuuHoSo: z.string().optional().nullable(),
   ghiChu: z.string().optional().nullable(),

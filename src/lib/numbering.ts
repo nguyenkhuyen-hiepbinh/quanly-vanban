@@ -30,19 +30,20 @@ export async function getNextSequenceNumber(
 }
 
 /**
- * Sinh số thứ tự tiếp theo cho "Lưu hồ sơ số" của một phòng ban trong 1 năm - dùng để ghép
- * thành mã dạng "{Mã phòng ban}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), reset về 1 mỗi
- * năm mới. Cùng cơ chế upsert nguyên tử như getNextSequenceNumber ở trên.
+ * Sinh số thứ tự tiếp theo cho "Lưu hồ sơ số" của một Phòng ban CỦA SỞ (bảng `soDepartments`,
+ * không phải phòng ban nội bộ trường) trong 1 năm - dùng để ghép thành mã dạng "{Mã phòng ban
+ * của Sở}-{năm}-{số thứ tự 3 chữ số}" (VD: VP-2026-001), reset về 1 mỗi năm mới. Cùng cơ chế
+ * upsert nguyên tử như getNextSequenceNumber ở trên.
  */
 export async function getNextHoSoNumber(
-  departmentId: number,
+  soDepartmentId: number,
   year: number
 ): Promise<number> {
   const db = getDb();
   const row = await db.get<{ last_number: number }>(sql`
-    INSERT INTO ho_so_counters (department_id, year, last_number)
-    VALUES (${departmentId}, ${year}, 1)
-    ON CONFLICT(department_id, year)
+    INSERT INTO ho_so_counters (so_department_id, year, last_number)
+    VALUES (${soDepartmentId}, ${year}, 1)
+    ON CONFLICT(so_department_id, year)
     DO UPDATE SET last_number = last_number + 1
     RETURNING last_number
   `);

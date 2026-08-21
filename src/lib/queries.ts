@@ -4,6 +4,7 @@ import { todayVN } from "@/lib/date";
 import {
   documents,
   departments,
+  soDepartments,
   academicYears,
   documentFiles,
   processingHistory,
@@ -20,6 +21,9 @@ export async function getDocumentDetail(id: number, session: SessionPayload) {
 
   const department = doc.departmentId
     ? await db.select().from(departments).where(eq(departments.id, doc.departmentId)).get()
+    : null;
+  const soDepartment = doc.soDepartmentId
+    ? await db.select().from(soDepartments).where(eq(soDepartments.id, doc.soDepartmentId)).get()
     : null;
   const academicYear = doc.academicYearId
     ? await db.select().from(academicYears).where(eq(academicYears.id, doc.academicYearId)).get()
@@ -51,6 +55,7 @@ export async function getDocumentDetail(id: number, session: SessionPayload) {
   return {
     document: doc,
     department,
+    soDepartment,
     academicYear,
     creator: creator ? { id: creator.id, fullName: creator.fullName } : null,
     assignee: assignee ? { id: assignee.id, fullName: assignee.fullName } : null,

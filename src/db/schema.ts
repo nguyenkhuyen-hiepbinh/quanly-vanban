@@ -52,6 +52,20 @@ export const departments = sqliteTable("departments", {
     .default(sql`CURRENT_TIMESTAMP`),
 });
 
+// Danh mục Phòng ban/Đơn vị của SỞ Giáo dục và Đào tạo (đơn vị BÊN NGOÀI, cơ quan ban hành văn
+// bản đến) - KHÔNG được nhầm với bảng `departments` ở trên (đó là phòng ban NỘI BỘ của trường,
+// dùng để "Chuyển đến phòng ban xử lý"). Danh mục này dùng để người dùng chọn "văn bản này
+// thuộc Phòng ban nào của Sở" khi tiếp nhận văn bản đến, làm cơ sở tự sinh "Lưu hồ sơ số".
+export const soDepartments = sqliteTable("so_departments", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  code: text("code").notNull().unique(), // VD: "VP", "KTPC"...
+  name: text("name").notNull(), // VD: "Văn phòng"
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at")
+    .notNull()
+    .default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const users = sqliteTable("users", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   username: text("username").notNull().unique(),
@@ -89,22 +103,23 @@ export const counters = sqliteTable(
   })
 );
 
-// Bộ đếm "Lưu hồ sơ số" theo từng phòng ban + năm để tự sinh mã dạng "{Mã phòng ban}-{năm}-
-// {số thứ tự 3 chữ số}" (VD: VP-2026-001). Cùng cơ chế upsert nguyên tử như bảng `counters`
-// ở trên - xem src/lib/numbering.ts.
+// Bộ đếm "Lưu hồ sơ số" theo từng Phòng ban CỦA SỞ (bảng `soDepartments` ở trên, không phải
+// `departments` nội bộ trường) + năm, để tự sinh mã dạng "{Mã phòng ban}-{năm}-{số thứ tự 3
+// chữ số}" (VD: VP-2026-001). Cùng cơ chế upsert nguyên tử như bảng `counters` ở trên - xem
+// src/lib/numbering.ts.
 export const hoSoCounters = sqliteTable(
   "ho_so_counters",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    departmentId: integer("department_id")
+    soDepartmentId: integer("so_department_id")
       .notNull()
-      .references(() => departments.id),
+      .references(() => soDepartments.id),
     year: integer("year").notNull(),
     lastNumber: integer("last_number").notNull().default(0),
   },
   (table) => ({
     deptYearUnique: uniqueIndex("ho_so_counters_dept_year_unique").on(
-      table.departmentId,
+      table.soDepartmentId,
       table.year
     ),
   })
@@ -140,7 +155,8 @@ export const documents = sqliteTable("documents", {
 
   status: text("status", { enum: DOC_STATUS }).notNull().default("MOI"),
 
-  departmentId: integer("department_id").references(() => departments.id), // phòng ban xử lý / soạn thảo
+  departmentId: integer("department_id").references(() => departments.id), // phòng ban NỘI BỘ TRƯỜNG xử lý / soạn thảo
+  soDepartmentId: integer("so_department_id").references(() => soDepartments.id), // phòng ban CỦA SỞ mà văn bản đến này thuộc về (dùng để sinh Lưu hồ sơ số)
   createdById: integer("created_by_id")
     .notNull()
     .references(() => users.id),
