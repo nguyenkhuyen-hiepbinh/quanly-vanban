@@ -80,7 +80,11 @@ export async function extractDocumentFields(
       task: "query",
       image: dataUri,
       question: EXTRACT_PROMPT,
-      max_tokens: 1024,
+      // reasoning=true (mặc định) khiến model sinh thêm 1 đoạn "suy luận" trước khi trả lời
+      // thật - có thể ăn hết max_tokens trước khi tới phần JSON cần lấy, khiến kết quả trả về
+      // rỗng/thiếu dù gọi thành công. Tắt reasoning + tăng max_tokens để tránh việc này.
+      reasoning: false,
+      max_tokens: 2048,
     });
   } catch (err) {
     throw new Error(
@@ -105,15 +109,28 @@ export async function extractDocumentFields(
 
   const parsed = extractJsonObject(responseText);
   if (!parsed) {
+    // Log lại nguyên văn câu trả lời của AI để tra cứu sau này (xem trong Cloudflare Dashboard
+    // → Worker → Logs) nếu cần chẩn đoán thêm - không lộ ra cho người dùng vì quá kỹ thuật.
+    console.error("[extract] AI trả lời không phải JSON hợp lệ:", responseText.slice(0, 500));
     throw new Error("AI không trả về dữ liệu hợp lệ, vui lòng thử lại hoặc nhập tay.");
   }
 
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  return {
+  const fields: ExtractedFields = {
     trichYeu: str(parsed.trichYeu),
     loaiVanBan: str(parsed.loaiVanBan),
     soKyHieu: str(parsed.soKyHieu),
     noiGui: str(parsed.noiGui),
     ngayVanBan: str(parsed.ngayVanBan),
   };
+
+  const hasAnyValue = Object.values(fields).some((v) => v.length > 0);
+  if (!hasAnyValue) {
+    console.error("[extract] AI trả về JSON nhưng tất cả trường đều rỗng:", responseText.slice(0, 500));
+    throw new Error(
+      "AI không đọc được nội dung rõ trong ảnh này (ảnh có thể bị mờ, chụp nghiêng, chữ quá nhỏ, hoặc mô hình AI miễn phí đang dùng có giới hạn khi đọc tiếng Việt). Vui lòng thử lại với ảnh rõ nét hơn, chụp thẳng, đủ sáng - hoặc nhập tay."
+    );
+  }
+
+  return fields;
 }
