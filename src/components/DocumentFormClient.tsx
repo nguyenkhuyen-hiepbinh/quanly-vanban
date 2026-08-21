@@ -28,6 +28,11 @@ export default function DocumentFormClient({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  // Ảnh dùng RIÊNG cho tính năng AI tự động điền - KHÁC với `file` (tệp văn bản chính thức sẽ
+  // lưu trữ). Tách riêng vì: (1) Workers AI chỉ đọc được ảnh, không đọc được PDF, trong khi văn
+  // bản chính thức thường là PDF; (2) người dùng có thể chỉ cần chụp nhanh 1 ảnh để AI đọc rồi
+  // vẫn tải lên bản PDF gốc đẹp hơn làm tệp lưu trữ chính thức.
+  const [extractFile, setExtractFile] = useState<File | null>(null);
   const [extracting, setExtracting] = useState(false);
   const [extractMsg, setExtractMsg] = useState<string | null>(null);
   const [extractError, setExtractError] = useState<string | null>(null);
@@ -73,26 +78,27 @@ export default function DocumentFormClient({
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  // Cloudflare Workers AI (model đang dùng) chỉ đọc được ảnh, chưa hỗ trợ PDF trực tiếp.
-  const EXTRACTABLE_TYPES = ["image/jpeg", "image/png"];
-
   function handleFileChange(f: File | null) {
     setFile(f);
+  }
+
+  function handleExtractFileChange(f: File | null) {
+    setExtractFile(f);
     setExtractMsg(null);
     setExtractError(null);
   }
 
-  // Đọc ảnh/PDF bằng Claude API (vision) và tự động điền các trường còn trống trong form -
-  // chỉ là tính năng hỗ trợ, KHÔNG ghi đè lên trường người dùng đã tự nhập, và luôn cần người
-  // dùng tự kiểm tra lại trước khi lưu (AI có thể đọc sai/thiếu, nhất là ảnh mờ/nghiêng).
+  // Đọc ảnh bằng Cloudflare Workers AI (vision) và tự động điền các trường còn trống trong
+  // form - chỉ là tính năng hỗ trợ, KHÔNG ghi đè lên trường người dùng đã tự nhập, và luôn cần
+  // người dùng tự kiểm tra lại trước khi lưu (AI có thể đọc sai/thiếu, nhất là ảnh mờ/nghiêng).
   async function handleAutoFill() {
-    if (!file) return;
+    if (!extractFile) return;
     setExtracting(true);
     setExtractError(null);
     setExtractMsg(null);
     try {
       const fd = new FormData();
-      fd.set("file", file);
+      fd.set("file", extractFile);
       const res = await fetch("/api/documents/extract-info", { method: "POST", body: fd });
       const data = (await res.json()) as {
         error?: string;
@@ -189,6 +195,39 @@ export default function DocumentFormClient({
           {error}
         </div>
       )}
+
+      <div className="rounded-md border border-dashed border-blue-200 bg-blue-50/50 p-3">
+        <label className="field-label">📷 Ảnh để AI tự động điền (tuỳ chọn)</label>
+        <p className="mb-2 text-xs text-slate-500">
+          Chụp/tải lên 1 ảnh JPG/PNG của văn bản (KHÁC với tệp lưu trữ chính thức ở dưới) để AI
+          đọc và gợi ý điền nhanh các trường bên dưới. Không bắt buộc - bạn vẫn có thể tự nhập
+          tay như bình thường.
+        </p>
+        <input
+          type="file"
+          accept=".jpg,.jpeg,.png"
+          className="block w-full text-sm text-slate-600 file:mr-3 file:rounded-md file:border-0 file:bg-blue-100 file:px-3 file:py-2 file:text-sm file:font-medium file:text-blue-700 hover:file:bg-blue-200"
+          onChange={(e) => handleExtractFileChange(e.target.files?.[0] ?? null)}
+        />
+        {extractFile && (
+          <div className="mt-2">
+            <button
+              type="button"
+              onClick={handleAutoFill}
+              disabled={extracting}
+              className="btn-secondary text-sm"
+            >
+              {extracting ? "Đang đọc ảnh bằng AI..." : "🔍 Tự động điền thông tin từ ảnh này"}
+            </button>
+            <p className="mt-1 text-xs text-slate-400">
+              Chỉ gợi ý điền các trường còn trống, không ghi đè nội dung đã có. Luôn kiểm tra lại
+              trước khi lưu.
+            </p>
+            {extractError && <p className="mt-1 text-xs text-red-600">{extractError}</p>}
+            {extractMsg && <p className="mt-1 text-xs text-emerald-600">{extractMsg}</p>}
+          </div>
+        )}
+      </div>
 
       <div>
         <label className="field-label">Trích yếu nội dung *</label>
@@ -422,25 +461,6 @@ export default function DocumentFormClient({
           onChange={(e) => handleFileChange(e.target.files?.[0] ?? null)}
         />
         <p className="mt-1 text-xs text-slate-400">Kích thước tối đa 30MB.</p>
-
-        {file && EXTRACTABLE_TYPES.includes(file.type) && (
-          <div className="mt-2">
-            <button
-              type="button"
-              onClick={handleAutoFill}
-              disabled={extracting}
-              className="btn-secondary text-sm"
-            >
-              {extracting ? "Đang đọc tệp bằng AI..." : "🔍 Tự động điền thông tin từ tệp này"}
-            </button>
-            <p className="mt-1 text-xs text-slate-400">
-              Dùng AI đọc nội dung ảnh để gợi ý điền các trường phía trên (không ghi đè trường
-              đã có nội dung). Luôn kiểm tra lại trước khi lưu.
-            </p>
-            {extractError && <p className="mt-1 text-xs text-red-600">{extractError}</p>}
-            {extractMsg && <p className="mt-1 text-xs text-emerald-600">{extractMsg}</p>}
-          </div>
-        )}
       </div>
 
       {type === "DEN" && (
